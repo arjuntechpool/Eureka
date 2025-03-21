@@ -13,6 +13,13 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>eureka-demo</name>
 	<description>Demo project for Spring Boot</description>
+	<packaging>pom</packaging>
+	 <modules>
+        <module>eureka-server</module>
+        <module>zuul-gateway</module>
+        <module>product-service</module>
+        <module>order-service</module>
+    </modules>
 	<url/>
 	<licenses>
 		<license/>
