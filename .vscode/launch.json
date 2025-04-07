@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "ZuulGatewayApplication",
+            "request": "launch",
+            "mainClass": "com.techpool.zuul_gateway.ZuulGatewayApplication",
+            "projectName": "zuul-gateway"
+        },
+        {
+            "type": "java",
+            "name": "EurekaServerApplication",
+            "request": "launch",
+            "mainClass": "com.techpool.eureka_server.EurekaServerApplication",
+            "projectName": "eureka-server"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-EurekaDemoApplication<eureka-demo>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.techpool.eureka_demo.EurekaDemoApplication",
+            "projectName": "eureka-demo",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
