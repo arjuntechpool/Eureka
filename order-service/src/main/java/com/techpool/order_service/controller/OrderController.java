@@ -1,22 +1,32 @@
 package com.techpool.order_service.controller;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.techpool.order_service.client.ProductClient;
+import com.techpool.order_service.dto.OrderDetailsDTO;
+import com.techpool.order_service.dto.OrderItemDetailsDTO;
 import com.techpool.order_service.model.Order;
 import com.techpool.order_service.model.OrderItem;
+import com.techpool.order_service.model.Product;
 
 @RestController
 @RequestMapping("/orders/api")
 public class OrderController {
+
+    @Autowired
+    private ProductClient productClient;
 
     // Simple in-memory order list
     private List<Order> orders = Arrays.asList(
@@ -58,5 +68,80 @@ public class OrderController {
     public Order getOrderByIdFallback(Long id) {
         return new Order(id, 0L, LocalDateTime.now(), "FALLBACK", 
                 Collections.singletonList(new OrderItem(0L, 0, 0.0)));
+    }
+    
+    // New endpoint that integrates with product service
+    @GetMapping("/orders-with-products")
+    @HystrixCommand(fallbackMethod = "getOrdersWithProductsFallback")
+    public List<OrderDetailsDTO> getOrdersWithProducts() {
+        return orders.stream()
+                .map(order -> {
+                    List<OrderItemDetailsDTO> itemsWithDetails = new ArrayList<>();
+                    
+                    for (OrderItem item : order.getItems()) {
+                        try {
+                            // Call product service via Feign
+                            Product product = productClient.getProductById(item.getProductId());
+                            itemsWithDetails.add(new OrderItemDetailsDTO(item, product));
+                        } catch (Exception e) {
+                            // Fallback in case product service is down
+                            itemsWithDetails.add(new OrderItemDetailsDTO(item, null));
+                        }
+                    }
+                    
+                    return new OrderDetailsDTO(order, itemsWithDetails);
+                })
+                .collect(Collectors.toList());
+    }
+    
+    public List<OrderDetailsDTO> getOrdersWithProductsFallback() {
+        Order fallbackOrder = new Order(0L, 0L, LocalDateTime.now(), "FALLBACK", 
+                Collections.singletonList(new OrderItem(0L, 0, 0.0)));
+        
+        OrderItemDetailsDTO fallbackItem = new OrderItemDetailsDTO(
+                new OrderItem(0L, 0, 0.0),
+                new Product(0L, "Fallback Product", "Service temporarily unavailable", 0.0)
+        );
+        
+        return Collections.singletonList(
+                new OrderDetailsDTO(fallbackOrder, Collections.singletonList(fallbackItem))
+        );
+    }
+    
+    // New endpoint to get a specific order with product details
+    @GetMapping("/orders-with-products/{id}")
+    @HystrixCommand(fallbackMethod = "getOrderWithProductsByIdFallback")
+    public OrderDetailsDTO getOrderWithProductsById(@PathVariable Long id) {
+        Order order = orders.stream()
+                .filter(o -> o.getId().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Order not found with id: " + id));
+        
+        List<OrderItemDetailsDTO> itemsWithDetails = new ArrayList<>();
+        
+        for (OrderItem item : order.getItems()) {
+            try {
+                // Call product service via Feign
+                Product product = productClient.getProductById(item.getProductId());
+                itemsWithDetails.add(new OrderItemDetailsDTO(item, product));
+            } catch (Exception e) {
+                // Fallback in case product service is down
+                itemsWithDetails.add(new OrderItemDetailsDTO(item, null));
+            }
+        }
+        
+        return new OrderDetailsDTO(order, itemsWithDetails);
+    }
+    
+    public OrderDetailsDTO getOrderWithProductsByIdFallback(Long id) {
+        Order fallbackOrder = new Order(id, 0L, LocalDateTime.now(), "FALLBACK", 
+                Collections.singletonList(new OrderItem(0L, 0, 0.0)));
+        
+        OrderItemDetailsDTO fallbackItem = new OrderItemDetailsDTO(
+                new OrderItem(0L, 0, 0.0),
+                new Product(0L, "Fallback Product", "Service temporarily unavailable", 0.0)
+        );
+        
+        return new OrderDetailsDTO(fallbackOrder, Collections.singletonList(fallbackItem));
     }
 }
